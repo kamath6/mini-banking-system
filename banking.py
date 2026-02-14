@@ -6,7 +6,7 @@ ACCOUNTS_FILE = "accounts.csv"
 TRANSACTIONS_FILE = "transactions.csv"
 
 
-# Ensure files exist
+# ✅ Ensure CSV files exist with headers
 def initialize_files():
     if not os.path.exists(ACCOUNTS_FILE):
         with open(ACCOUNTS_FILE, "w", newline="") as file:
@@ -19,53 +19,72 @@ def initialize_files():
             writer.writerow(["AccountNo", "Type", "Amount"])
 
 
-def generate_account_number():
-    return random.randint(10000, 99999)
-
-
+# ✅ Create Account
 def create_account():
     name = input("Enter your name: ")
     pin = input("Set 4-digit PIN: ")
 
-    if len(pin) != 4 or not pin.isdigit():
-        print("Invalid PIN.\n")
-        return
-
-    account_no = generate_account_number()
+    account_no = str(random.randint(10000, 99999))
+    balance = 0
 
     with open(ACCOUNTS_FILE, "a", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow([account_no, name, pin, 0])
+        writer.writerow([account_no, name, pin, balance])
 
-    print(f"Account created successfully! Account No: {account_no}\n")
+    print(f"Account created successfully! Your Account Number is: {account_no}")
 
 
+# ✅ Login
 def login():
     account_no = input("Enter Account Number: ")
     pin = input("Enter PIN: ")
 
     with open(ACCOUNTS_FILE, "r") as file:
         reader = csv.DictReader(file)
-
         for row in reader:
             if row["AccountNo"] == account_no and row["PIN"] == pin:
-                print("Login Successful!\n")
+                print("Login Successful!")
                 return row
 
-    print("Invalid credentials.\n")
+    print("Invalid Account Number or PIN.")
     return None
 
 
-def update_balance(account_no, new_balance):
+# ✅ Deposit
+def deposit(user):
+    amount = float(input("Enter amount to deposit: "))
+    user["Balance"] = str(float(user["Balance"]) + amount)
+
+    update_account(user)
+    record_transaction(user["AccountNo"], "Deposit", amount)
+
+    print("Deposit Successful!")
+
+
+# ✅ Withdraw
+def withdraw(user):
+    amount = float(input("Enter amount to withdraw: "))
+
+    if float(user["Balance"]) >= amount:
+        user["Balance"] = str(float(user["Balance"]) - amount)
+        update_account(user)
+        record_transaction(user["AccountNo"], "Withdraw", amount)
+        print("Withdrawal Successful!")
+    else:
+        print("Insufficient Balance!")
+
+
+# ✅ Update Account in CSV
+def update_account(updated_user):
     rows = []
 
     with open(ACCOUNTS_FILE, "r") as file:
         reader = csv.DictReader(file)
-        rows = list(reader)
-
-    for row in rows:
-        if row["AccountNo"] == account_no:
-            row["Balance"] = new_balance
+        for row in reader:
+            if row["AccountNo"] == updated_user["AccountNo"]:
+                rows.append(updated_user)
+            else:
+                rows.append(row)
 
     with open(ACCOUNTS_FILE, "w", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=["AccountNo", "Name", "PIN", "Balance"])
@@ -73,83 +92,42 @@ def update_balance(account_no, new_balance):
         writer.writerows(rows)
 
 
+# ✅ Record Transactions
 def record_transaction(account_no, t_type, amount):
     with open(TRANSACTIONS_FILE, "a", newline="") as file:
         writer = csv.writer(file)
         writer.writerow([account_no, t_type, amount])
 
 
-def banking_menu(user):
-    account_no = user["AccountNo"]
-    balance = float(user["Balance"])
-
-    while True:
-        print("1. Check Balance")
-        print("2. Deposit")
-        print("3. Withdraw")
-        print("4. Delete Account")
-        print("5. Logout")
-
-        choice = input("Choose option: ")
-
-        if choice == "1":
-            print(f"Balance: ₹{balance}\n")
-
-        elif choice == "2":
-            amount = float(input("Enter amount: "))
-            balance += amount
-            update_balance(account_no, balance)
-            record_transaction(account_no, "Deposit", amount)
-            print("Deposit Successful!\n")
-
-        elif choice == "3":
-            amount = float(input("Enter amount: "))
-            if amount > balance:
-                print("Insufficient Balance.\n")
-            else:
-                balance -= amount
-                update_balance(account_no, balance)
-                record_transaction(account_no, "Withdraw", amount)
-                print("Withdrawal Successful!\n")
-
-        elif choice == "4":
-            confirm = input("Are you sure? (yes/no): ")
-            if confirm.lower() == "yes":
-                delete_account(account_no)
-                break
-
-        elif choice == "5":
-            break
-
-        else:
-            print("Invalid choice.\n")
-
-
-def delete_account(account_no):
+# ✅ Delete Account
+def delete_account(user):
     rows = []
 
     with open(ACCOUNTS_FILE, "r") as file:
         reader = csv.DictReader(file)
-        rows = [row for row in reader if row["AccountNo"] != account_no]
+        for row in reader:
+            if row["AccountNo"] != user["AccountNo"]:
+                rows.append(row)
 
     with open(ACCOUNTS_FILE, "w", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=["AccountNo", "Name", "PIN", "Balance"])
         writer.writeheader()
         writer.writerows(rows)
 
-    print("Account Deleted Successfully!\n")
+    print("Account Deleted Successfully!")
 
 
+# ✅ Main Menu
 def main():
     initialize_files()
 
     while True:
-        print("=== Mini Banking System ===")
+        print("\n==== Mini Banking System ====")
         print("1. Create Account")
         print("2. Login")
         print("3. Exit")
 
-        choice = input("Choose option: ")
+        choice = input("Enter choice: ")
 
         if choice == "1":
             create_account()
@@ -157,13 +135,37 @@ def main():
         elif choice == "2":
             user = login()
             if user:
-                banking_menu(user)
+                while True:
+                    print("\n1. Deposit")
+                    print("2. Withdraw")
+                    print("3. Check Balance")
+                    print("4. Delete Account")
+                    print("5. Logout")
+
+                    option = input("Choose option: ")
+
+                    if option == "1":
+                        deposit(user)
+
+                    elif option == "2":
+                        withdraw(user)
+
+                    elif option == "3":
+                        print("Current Balance:", user["Balance"])
+
+                    elif option == "4":
+                        delete_account(user)
+                        break
+
+                    elif option == "5":
+                        break
 
         elif choice == "3":
+            print("Thank you for using Mini Banking System!")
             break
 
         else:
-            print("Invalid option.\n")
+            print("Invalid Choice!")
 
 
 if __name__ == "__main__":
